@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#101114" />
+  <title>TokScale Studio - 分享卡片工作台</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #0c0d10;
+      --surface: #121316;
+      --surface-raised: #181a1e;
+      --surface-hover: #202228;
+      --border-soft: #23252b;
+      --border: #30333b;
+      --border-strong: #454952;
+      --text: #f2f3f5;
+      --text-secondary: #a7acb6;
+      --text-muted: #858b96;
+      --accent: #e7a652;
+      --accent-hover: #f0b768;
+      --accent-ink: #211708;
+      --accent-soft: rgba(231, 166, 82, 0.1);
+      --accent-border: rgba(231, 166, 82, 0.36);
+      --danger: #f08c88;
+      --font-sans: "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif;
+      --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+      --radius: 10px;
+      --radius-small: 7px;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { background: var(--canvas); }
+
+    body {
+      min-width: 0;
+      height: 100dvh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--canvas);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+    button, label, input, select { outline: none; }
+    button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border: 2px solid transparent; border-radius: 8px; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); border: 2px solid transparent; background-clip: padding-box; }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .studio-header {
+      position: relative;
+      z-index: 30;
+      min-height: 64px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-shrink: 0;
+      background: rgba(18, 19, 22, 0.96);
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .brand-cluster { display: flex; align-items: center; gap: 11px; min-width: 0; }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border: 1px solid var(--accent-border);
+      border-radius: var(--radius-small);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .brand-copy { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+    .brand-name { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
+    .brand-product { font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; }
+
+    .sync-status {
+      margin-left: 8px;
+      padding-left: 18px;
+      border-left: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .header-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+
+    .btn {
+      position: relative;
+      height: 36px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-small);
+      background: var(--surface-raised);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms var(--ease), opacity 160ms ease;
+    }
+
+    .btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); color: var(--text); }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.48; cursor: not-allowed; }
+
+    .btn-cta { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+    .btn-cta:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-ink); }
+
+    .btn.is-loading .icon-svg { animation: spin 800ms linear infinite; }
+    .btn.is-loading .btn-text { opacity: 0.85; }
+
+    .icon-svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .studio-body {
+      flex: 1;
+      min-height: 0;
+      height: calc(100dvh - 64px);
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr) 312px;
+      grid-template-rows: minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .panel-left, .panel-right { min-width: 0; min-height: 0; background: var(--surface); }
+
+    .panel-left {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border-soft);
+    }
+
+    .panel-right {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      border-left: 1px solid var(--border-soft);
+    }
+
+    .panel-block {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .panel-block:last-child { border-bottom: 0; }
+    .block-label-row { min-height: 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .block-title { color: var(--text); font-size: 12px; font-weight: 650; }
+    .block-meta { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 3px;
+      padding: 3px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: var(--canvas);
+    }
+
+    .seg-btn, .dock-btn {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 160ms ease, background-color 160ms ease, transform 160ms var(--ease);
+    }
+
+    .seg-btn { height: 32px; border-radius: var(--radius-small); font-size: 12px; font-weight: 600; }
+    .seg-btn:hover, .dock-btn:hover { color: var(--text); }
+    .seg-btn:active, .dock-btn:active { transform: scale(0.97); }
+    .seg-btn.active { background: var(--surface-raised); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+
+    .period-bar { display: flex; flex-direction: column; gap: 10px; }
+    .period-stepper { display: flex; align-items: center; gap: 7px; }
+
+    .step-btn {
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-small);
+      background: var(--surface-raised);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease, transform 160ms var(--ease);
+    }
+
+    .step-btn:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+    .step-btn:active:not(:disabled) { transform: scale(0.95); }
+    .step-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .select-control, .search-input {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-small);
+      background: var(--canvas);
+      color: var(--text);
+      transition: border-color 160ms ease, background-color 160ms ease;
+    }
+
+    .select-control { height: 34px; padding: 0 10px; font-family: var(--font-mono); font-size: 11px; }
+    .search-input { height: 36px; padding: 0 11px; font-size: 12px; }
+    .search-input::placeholder { color: var(--text-muted); opacity: 1; }
+    .select-control:hover, .search-input:hover { border-color: var(--border-strong); }
+    .select-control:focus, .search-input:focus { border-color: var(--accent); background: var(--surface-raised); }
+
+    .sub-toolbar { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .sub-toolbar > .pill-row { width: 100%; }
+    .toolbar-caption { color: var(--text-muted); font-size: 11px; }
+    .pill-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
+    .tag-btn {
+      min-height: 27px;
+      padding: 0 8px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms var(--ease);
+    }
+
+    .tag-btn:hover { color: var(--text); background: var(--surface-hover); }
+    .tag-btn:active { transform: scale(0.96); }
+    .tag-btn.active { border-color: var(--border); background: var(--surface-raised); color: var(--accent-hover); }
+
+    .model-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+    .model-row {
+      position: relative;
+      min-width: 0;
+      padding: 13px 14px 13px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-soft);
+      cursor: pointer;
+      transition: background-color 160ms ease;
+    }
+
+    .model-row::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 2px;
+      background: var(--accent);
+      opacity: 0;
+      transform: scaleY(0.4);
+      transition: opacity 160ms ease, transform 200ms var(--ease);
+    }
+
+    .model-row:hover { background: rgba(255, 255, 255, 0.025); }
+    .model-row.selected { background: rgba(255, 255, 255, 0.035); }
+    .model-row.selected::before, .model-row.spotlight-active::before { opacity: 1; transform: scaleY(1); }
+    .model-row.spotlight-active { background: var(--accent-soft); }
+
+    .model-row-left { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
+
+    .custom-check {
+      width: 16px;
+      height: 16px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      background: var(--canvas);
+      color: var(--accent-ink);
+      transition: background-color 160ms ease, border-color 160ms ease, transform 160ms var(--ease);
+    }
+
+    .model-row.selected .custom-check { background: var(--accent); border-color: var(--accent); }
+    .model-row:active .custom-check { transform: scale(0.88); }
+    .model-row-body { min-width: 0; flex: 1; }
+    .model-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+
+    .model-id {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .model-price { flex-shrink: 0; color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px; font-weight: 650; }
+    .model-row-sub { display: flex; align-items: center; gap: 7px; color: var(--text-muted); font-family: var(--font-mono); font-size: 9px; }
+
+    .model-origin {
+      max-width: 126px;
+      overflow: hidden;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .model-row-actions { display: flex; align-items: center; gap: 3px; opacity: 0; transition: opacity 160ms ease; }
+    .model-row:hover .model-row-actions, .model-row:focus-within .model-row-actions, .model-row.spotlight-active .model-row-actions { opacity: 1; }
+
+    .mini-icon-btn {
+      height: 26px;
+      padding: 0 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-raised);
+      color: var(--text-muted);
+      font-size: 10px;
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease, transform 160ms var(--ease);
+    }
+
+    .mini-icon-btn:hover { color: var(--text); border-color: var(--border-strong); }
+    .mini-icon-btn:active { transform: scale(0.95); }
+    .mini-icon-btn.active { border-color: var(--accent-border); color: var(--accent-hover); }
+
+    .canvas-stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 42%, #17191d 0%, var(--canvas) 68%);
+    }
+
+    .stage-heading {
+      padding: 20px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .stage-heading h1 { font-size: 13px; font-weight: 650; }
+    .stage-caption { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
+    .preview-meta { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; white-space: nowrap; }
+
+    #svg-stage {
+      min-width: 0;
+      min-height: 0;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #svg-stage svg {
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 12px;
+      filter: drop-shadow(0 22px 34px rgba(0, 0, 0, 0.32));
+      animation: preview-enter 240ms var(--ease);
+    }
+
+    .preview-skeleton {
+      width: min(88%, 760px);
+      aspect-ratio: 16 / 10;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .skeleton-line, .skeleton-block { border-radius: 5px; background: var(--surface-raised); animation: skeleton-pulse 1.4s ease-in-out infinite alternate; }
+    .skeleton-line { width: 42%; height: 12px; }
+    .skeleton-line.short { width: 24%; height: 9px; }
+    .skeleton-block { flex: 1; }
+
+    .preview-empty {
+      max-width: 340px;
+      padding: 28px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .preview-empty strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 14px; }
+    .preview-empty p { line-height: 1.7; }
+    .preview-empty .btn { margin-top: 16px; }
+
+    .floating-dock {
+      margin: 0 20px 18px;
+      padding: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      justify-self: center;
+      gap: 7px;
+      max-width: calc(100% - 40px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(18, 19, 22, 0.94);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+    }
+
+    .dock-group { display: flex; align-items: center; gap: 2px; }
+    .dock-sep { width: 1px; height: 18px; background: var(--border); }
+
+    .dock-btn {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .dock-btn.active { background: var(--surface-raised); color: var(--accent-hover); box-shadow: inset 0 0 0 1px var(--accent-border); }
+
+    .palette-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+
+    .palette-item {
+      min-width: 0;
+      height: 48px;
+      padding: 0 9px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-small);
+      background: var(--canvas);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 160ms ease, background-color 160ms ease, transform 160ms var(--ease);
+    }
+
+    .palette-item:hover { border-color: var(--border-strong); background: var(--surface-raised); }
+    .palette-item:active { transform: scale(0.98); }
+    .palette-item.active { border-color: var(--accent-border); background: var(--accent-soft); }
+
+    .swatch-pair {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      flex-shrink: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 5px;
+    }
+
+    .swatch-half { flex: 1; height: 100%; }
+    .palette-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .palette-name { overflow: hidden; color: var(--text-secondary); font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+    .palette-sub { overflow: hidden; color: var(--text-muted); font-family: var(--font-mono); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+    .palette-item.active .palette-name { color: var(--text); }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+
+    .metric-chip {
+      min-width: 0;
+      height: 31px;
+      padding: 0 4px;
+      border: 1px solid var(--border-soft);
+      border-radius: 6px;
+      background: var(--canvas);
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms var(--ease);
+    }
+
+    .metric-chip:hover { color: var(--text); border-color: var(--border-strong); }
+    .metric-chip:active { transform: scale(0.96); }
+    .metric-chip.active { border-color: var(--border); background: var(--surface-raised); color: var(--text); }
+    .metric-chip.active::before { content: "✓"; margin-right: 3px; color: var(--accent); }
+
+    .switch-list { display: flex; flex-direction: column; gap: 13px; }
+
+    .switch-row {
+      min-height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .switch-row:hover { color: var(--text); }
+
+    .switch-input {
+      appearance: none;
+      width: 34px;
+      height: 20px;
+      flex-shrink: 0;
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--canvas);
+      cursor: pointer;
+      transition: background-color 180ms ease, border-color 180ms ease;
+    }
+
+    .switch-input::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: transform 200ms var(--ease), background-color 180ms ease;
+    }
+
+    .switch-input:checked { background: var(--accent); border-color: var(--accent); }
+    .switch-input:checked::after { transform: translateX(14px); background: var(--accent-ink); }
+
+    .field-stack { display: flex; flex-direction: column; gap: 12px; }
+    .field-item { display: flex; flex-direction: column; gap: 6px; }
+    .field-label { color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+    .field-help { color: var(--text-muted); font-size: 10px; line-height: 1.5; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      visibility: hidden;
+      opacity: 0;
+      background: rgba(5, 6, 8, 0.74);
+      backdrop-filter: blur(5px);
+      transition: opacity 180ms ease, visibility 180ms ease;
+    }
+
+    .modal-backdrop.open { visibility: visible; opacity: 1; }
+
+    .modal-card {
+      width: 400px;
+      max-width: 100%;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+      transform: translateY(10px) scale(0.985);
+      transition: transform 220ms var(--ease);
+    }
+
+    .modal-backdrop.open .modal-card { transform: translateY(0) scale(1); }
+    .modal-title { font-size: 14px; font-weight: 700; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+    #toast-container {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 60;
+      width: min(360px, calc(100vw - 32px));
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent);
+      border-radius: var(--radius-small);
+      background: var(--surface-raised);
+      color: var(--text);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.36);
+      font-size: 12px;
+      line-height: 1.5;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 200ms ease, transform 240ms var(--ease);
+    }
+
+    .toast.visible { opacity: 1; transform: translateY(0); }
+    .toast.error { border-left-color: var(--danger); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes preview-enter { from { opacity: 0.5; transform: translateY(4px) scale(0.995); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes skeleton-pulse { from { opacity: 0.45; } to { opacity: 0.9; } }
+
+    @media (max-width: 1360px) {
+      .studio-body { grid-template-columns: 288px minmax(0, 1fr) 288px; }
+      .studio-header { padding: 0 14px; gap: 12px; }
+      .sync-status { display: none; }
+      .btn { padding: 0 10px; }
+      .panel-block { padding: 16px; }
+      .stage-heading { padding: 16px 18px 0; }
+      #svg-stage { padding: 14px 18px; }
+      .floating-dock { gap: 3px; margin-bottom: 14px; }
+      .dock-btn { padding: 0 8px; }
+    }
+
+    @media (max-width: 1100px) {
+      body { height: auto; overflow: auto; }
+      .studio-header { position: sticky; top: 0; }
+      .studio-body {
+        height: auto;
+        min-height: calc(100dvh - 64px);
+        grid-template-columns: 288px minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        grid-template-areas: "left stage" "right right";
+        overflow: visible;
+      }
+      .panel-left { grid-area: left; height: calc(100dvh - 64px); position: sticky; top: 64px; }
+      .canvas-stage { grid-area: stage; min-height: calc(100dvh - 64px); }
+      .panel-right {
+        grid-area: right;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow: visible;
+        border-top: 1px solid var(--border-soft);
+        border-left: 0;
+      }
+      .panel-block { border-right: 1px solid var(--border-soft); }
+      .panel-block:nth-child(2n) { border-right: 0; }
+      .header-actions .btn-text { display: none; }
+      .header-actions .btn-cta .btn-text { display: inline; }
+      .btn { width: 36px; padding: 0; }
+      .btn-cta { width: auto; padding: 0 12px; }
+    }
+
+    @media (max-width: 760px) {
+      .studio-header {
+        position: relative;
+        min-height: 108px;
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .brand-cluster { width: 100%; }
+      .brand-product { display: none; }
+      .sync-status { display: block; margin-left: auto; padding-left: 0; border-left: 0; font-size: 9px; }
+      .header-actions { width: 100%; display: grid; grid-template-columns: 38px 38px 38px 42px minmax(0, 1fr); gap: 6px; }
+      .header-actions .btn { width: auto; height: 36px; padding: 0; }
+      .header-actions .btn-cta { padding: 0 10px; }
+      .studio-body { display: flex; flex-direction: column; min-height: 0; }
+      .canvas-stage { order: 0; min-height: 480px; grid-template-rows: auto minmax(280px, 1fr) auto; }
+      .panel-left { order: 1; height: auto; position: static; border-top: 1px solid var(--border-soft); border-right: 0; }
+      .panel-right { order: 2; display: flex; flex-direction: column; }
+      .model-scroll { flex: none; max-height: 420px; }
+      .model-row-actions { opacity: 1; }
+      .model-origin { max-width: 142px; }
+      .stage-heading { padding: 16px 16px 0; }
+      .stage-caption { display: none; }
+      #svg-stage { padding: 14px 12px; }
+      #svg-stage svg { filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.26)); }
+      .floating-dock { max-width: calc(100% - 24px); margin: 0 12px 12px; flex-wrap: wrap; }
+      .dock-group { flex-wrap: wrap; justify-content: center; }
+      .dock-sep { display: none; }
+      .dock-btn { padding: 0 9px; }
+      .panel-block { padding: 18px; border-right: 0; }
+      .palette-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .palette-sub { font-size: 9px; }
+      .metric-chip { height: 36px; font-size: 11px; }
+      .switch-row { min-height: 28px; font-size: 12px; }
+      #toast-container { right: 16px; bottom: 16px; }
+    }
+
+    @media (max-width: 420px) {
+      .sync-status { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+      .model-row { padding-left: 14px; }
+      .model-row-sub { gap: 5px; }
+      .model-origin { max-width: 116px; }
+      .floating-dock { padding: 5px; }
+      .dock-btn { padding: 0 8px; font-size: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="studio-header">
+    <div class="brand-cluster">
+      <div class="brand-mark" aria-hidden="true">
+        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 18L10 12L14 16L20 6" /><path d="M16 6H20V10" /></svg>
+      </div>
+      <div class="brand-copy">
+        <span class="brand-name">TokScale</span>
+        <span class="brand-product">SHARE STUDIO</span>
+      </div>
+      <span class="sync-status" id="cache-status-text" role="status">正在读取本地数据</span>
+    </div>
+
+    <div class="header-actions" aria-label="数据与导出操作">
+      <button class="btn" id="btn-refresh-data" title="运行本机 TokScale CLI 更新账单">
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>
+        <span class="btn-text">同步数据</span>
+      </button>
+      <button class="btn" id="btn-save-desktop" title="保存 3 倍清晰度 PNG 到桌面">
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
+        <span class="btn-text">存至桌面</span>
+      </button>
+      <button class="btn" id="btn-download-png" title="下载 3 倍清晰度 PNG">
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+        <span class="btn-text">PNG</span>
+      </button>
+      <button class="btn" id="btn-download-svg" title="下载可编辑 SVG"><span>SVG</span></button>
+      <button class="btn btn-cta" id="btn-copy-png">
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+        <span class="btn-text">复制高清卡片</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="studio-body">
+    <aside class="panel-left" aria-label="数据与模型选择">
+      <div class="panel-block">
+        <div class="segmented" aria-label="统计范围">
+          <button class="seg-btn active" data-scope="daily" aria-pressed="true">每日</button>
+          <button class="seg-btn" data-scope="monthly" aria-pressed="false">每月</button>
+          <button class="seg-btn" data-scope="alltime" aria-pressed="false">全部</button>
+        </div>
+        <div id="period-selector-bar" class="period-bar"></div>
+      </div>
+
+      <div class="panel-block">
+        <div class="block-label-row">
+          <h2 class="block-title">模型</h2>
+          <span class="block-meta" id="selected-count-badge">0 / 0</span>
+        </div>
+        <label class="visually-hidden" for="input-search-model">搜索模型、供应商或客户端</label>
+        <input type="search" id="input-search-model" class="search-input" placeholder="搜索模型、供应商或客户端" autocomplete="off" />
+        <div class="pill-row" aria-label="快速选择">
+          <button class="tag-btn" id="btn-select-all">全选</button>
+          <button class="tag-btn" id="btn-select-dedup" title="每个同名模型只保留一条记录">同名去重</button>
+          <button class="tag-btn" id="btn-select-top3">Top 3</button>
+          <button class="tag-btn" id="btn-select-top5">Top 5</button>
+        </div>
+      </div>
+      <div id="model-list" class="model-scroll"></div>
+    </aside>
+
+    <main class="canvas-stage">
+      <div class="stage-heading">
+        <div>
+          <h1>分享卡片</h1>
+          <p class="stage-caption">所有修改都会实时应用到预览</p>
+        </div>
+        <span class="preview-meta" id="preview-meta">准备中</span>
+      </div>
+      <div id="svg-stage" aria-live="polite" aria-busy="true">
+        <div class="preview-skeleton" aria-label="正在生成预览">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-block"></div>
+        </div>
+      </div>
+      <div class="floating-dock" aria-label="卡片版式">
+        <div class="dock-group" aria-label="卡片模式">
+          <button class="dock-btn active" data-card-mode="multi" aria-pressed="true">多模型</button>
+          <button class="dock-btn" data-card-mode="spotlight" aria-pressed="false">单模型</button>
+        </div>
+        <div class="dock-sep" aria-hidden="true"></div>
+        <div class="dock-group" aria-label="画布比例">
+          <button class="dock-btn active" data-ratio="auto" aria-pressed="true">自适应</button>
+          <button class="dock-btn" data-ratio="16:9" aria-pressed="false">16:9</button>
+          <button class="dock-btn" data-ratio="1:1" aria-pressed="false">1:1</button>
+          <button class="dock-btn" data-ratio="3:4" aria-pressed="false">3:4</button>
+        </div>
+        <div class="dock-sep" aria-hidden="true"></div>
+        <div class="dock-group" aria-label="卡片语言">
+          <button class="dock-btn active" data-lang="zh" aria-pressed="true">中文</button>
+          <button class="dock-btn" data-lang="bi" aria-pressed="false">双语</button>
+          <button class="dock-btn" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="panel-right" aria-label="卡片样式与内容设置">
+      <section class="panel-block">
+        <div class="block-label-row"><h2 class="block-title">配色</h2></div>
+        <div id="theme-swatch-grid" class="palette-list"></div>
+      </section>
+
+      <section class="panel-block">
+        <div class="block-label-row"><h2 class="block-title">数据列</h2></div>
+        <div class="metric-grid">
+          <button class="metric-chip active" data-metric="provider" aria-pressed="true">供应商</button>
+          <button class="metric-chip active" data-metric="source" aria-pressed="true">客户端</button>
+          <button class="metric-chip active" data-metric="messages" aria-pressed="true">消息数</button>
+          <button class="metric-chip active" data-metric="input" aria-pressed="true">输入量</button>
+          <button class="metric-chip active" data-metric="output" aria-pressed="true">输出量</button>
+          <button class="metric-chip active" data-metric="cacheRead" aria-pressed="true">缓存读</button>
+          <button class="metric-chip active" data-metric="cacheWrite" aria-pressed="true">缓存写</button>
+          <button class="metric-chip" data-metric="reasoning" aria-pressed="false">推理量</button>
+          <button class="metric-chip active" data-metric="cacheHit" aria-pressed="true">缓存倍率</button>
+          <button class="metric-chip active" data-metric="total" aria-pressed="true">总计</button>
+          <button class="metric-chip active" data-metric="cost" aria-pressed="true">费用</button>
+          <button class="metric-chip" data-metric="costPer1M" aria-pressed="false">单价 / 1M</button>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <div class="block-label-row"><h2 class="block-title">版式与隐私</h2></div>
+        <div class="switch-list">
+          <label class="switch-row"><span>画框衬底</span><input type="checkbox" class="switch-input" id="chk-studio-mat" checked /></label>
+          <label class="switch-row"><span>核心指标汇总</span><input type="checkbox" class="switch-input" id="chk-summary-strip" checked /></label>
+          <label class="switch-row"><span>模型 Token 比例条</span><input type="checkbox" class="switch-input" id="chk-token-bar" checked /></label>
+          <label class="switch-row"><span>底部 Token 构成</span><input type="checkbox" class="switch-input" id="chk-comp-bar" checked /></label>
+          <label class="switch-row"><span>显示完整精确数值</span><input type="checkbox" class="switch-input" id="chk-exact-numbers" /></label>
+          <label class="switch-row"><span>隐藏金额</span><input type="checkbox" class="switch-input" id="chk-hide-cost" /></label>
+          <label class="switch-row"><span>隐藏客户端来源</span><input type="checkbox" class="switch-input" id="chk-hide-source" /></label>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <div class="block-label-row"><h2 class="block-title">文案与署名</h2></div>
+        <div class="field-stack">
+          <div class="field-item"><label class="field-label" for="input-custom-title">主标题</label><input type="text" id="input-custom-title" class="search-input" placeholder="按统计范围自动生成" /></div>
+          <div class="field-item"><label class="field-label" for="input-custom-badge">右上角标签</label><input type="text" id="input-custom-badge" class="search-input" placeholder="自动显示缓存峰值或模型数" /></div>
+          <div class="field-item"><label class="field-label" for="input-custom-author">署名</label><input type="text" id="input-custom-author" class="search-input" value="@凌苍" placeholder="例如 @凌苍" /></div>
+          <div class="field-item"><label class="field-label" for="input-custom-subtitle">副标题</label><input type="text" id="input-custom-subtitle" class="search-input" placeholder="可选" /></div>
+          <div class="field-item"><label class="field-label" for="input-custom-footer">底部备注</label><input type="text" id="input-custom-footer" class="search-input" placeholder="TokScale 本地数据生成" /></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop" id="edit-modal">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+      <div class="block-label-row"><h2 class="modal-title" id="edit-modal-title">编辑模型信息</h2></div>
+      <div class="field-item"><label class="field-label" for="edit-model-name">模型显示名称</label><input type="text" id="edit-model-name" class="search-input" /></div>
+      <div class="field-item"><label class="field-label" for="edit-provider-name">供应商名称</label><input type="text" id="edit-provider-name" class="search-input" /></div>
+      <div class="field-item">
+        <label class="field-label" for="edit-source-name">客户端来源</label>
+        <div style="display: flex; gap: 7px;"><input type="text" id="edit-source-name" class="search-input" /><button class="btn" id="btn-clear-source" type="button">清空</button></div>
+        <p class="field-help">清空后只隐藏当前模型的来源。</p>
+      </div>
+      <div class="modal-actions"><button class="btn" id="btn-close-modal" type="button">取消</button><button class="btn btn-cta" id="btn-save-modal" type="button"><span class="btn-text">保存修改</span></button></div>
+    </div>
+  </div>
+
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
